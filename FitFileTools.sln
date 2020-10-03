@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FitFileTools", "FitFileTools\FitFileTools.csproj", "{88065FFC-77C9-466F-844A-C197EE6A5534}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FitFileTools.Tools", "FitFileTools.Tools\FitFileTools.Tools.csproj", "{555825A4-4726-4739-AF59-1E61AEC987EA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FitFileTools.Cli", "FitFileTools.Cli\FitFileTools.Cli.csproj", "{E966249D-0D53-4978-A1D4-040CA5C5AB2A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{88065FFC-77C9-466F-844A-C197EE6A5534}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{88065FFC-77C9-466F-844A-C197EE6A5534}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{88065FFC-77C9-466F-844A-C197EE6A5534}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{88065FFC-77C9-466F-844A-C197EE6A5534}.Release|Any CPU.Build.0 = Release|Any CPU
+		{555825A4-4726-4739-AF59-1E61AEC987EA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{555825A4-4726-4739-AF59-1E61AEC987EA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{555825A4-4726-4739-AF59-1E61AEC987EA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{555825A4-4726-4739-AF59-1E61AEC987EA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E966249D-0D53-4978-A1D4-040CA5C5AB2A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E966249D-0D53-4978-A1D4-040CA5C5AB2A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E966249D-0D53-4978-A1D4-040CA5C5AB2A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E966249D-0D53-4978-A1D4-040CA5C5AB2A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
