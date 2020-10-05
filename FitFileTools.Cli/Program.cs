@@ -2,31 +2,38 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.IO;
-
+using FitFileTools.Tools;
 
 namespace FitFileTools.Cli
 {
-    class Program
+    internal class Program
     {
-        static Command BuildConvertTcxCommand()
+        private static Command BuildConvertTcxCommand()
         {
             var cmd = new Command("tcx")
             {
-                new Argument<FileInfo>("input_file", description: "The path of the TCX file to convert")
+                new Argument<FileInfo>("input_file", "The path of the TCX file to convert")
                 {
                     Arity = ArgumentArity.ExactlyOne
                 }.ExistingOnly()
             };
 
             // ReSharper disable once InconsistentNaming
-            cmd.Handler = CommandHandler.Create((FileInfo input_file) =>
+            cmd.Handler = CommandHandler.Create(async (FileInfo input_file) =>
             {
                 Console.WriteLine($"The value for tcx file input is {input_file}");
+                var writer = new FitWriter(
+                    Path.ChangeExtension(input_file.FullName, ".fit"),
+                    new TcxDataStream(input_file)
+                );
+
+                await writer.Run();
             });
 
             return cmd;
         }
-        static int Main(string[] args)
+
+        private static int Main(string[] args)
         {
             var rootCommand = new RootCommand
             {
