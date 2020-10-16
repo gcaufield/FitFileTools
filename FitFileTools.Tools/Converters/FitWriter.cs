@@ -1,6 +1,7 @@
 using System.IO;
 using System.Threading.Tasks;
 using Dynastream.Fit;
+using FitFileTools.Tools.Converters;
 using DateTime = System.DateTime;
 using File = Dynastream.Fit.File;
 
@@ -34,7 +35,6 @@ namespace FitFileTools.Tools
 
                     rcrd.SetTimestamp(new Dynastream.Fit.DateTime(record.Timestamp));
                     rcrd.SetAltitude((float?) record.Elevation);
-                    if (record.Latitude != null) rcrd.SetPositionLat(record.Latitude / 180.0);
                 }
             });
         }

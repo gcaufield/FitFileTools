@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace FitFileTools.Tools
+namespace FitFileTools.Tools.Converters
 {
     public interface IDataStream
     {
