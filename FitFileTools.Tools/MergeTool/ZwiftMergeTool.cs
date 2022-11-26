@@ -1,112 +1,56 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 using Dynastream.Fit;
 
 namespace FitFileTools.Tools.MergeTool
 {
-    class FitReader
-    {
-        private Stream _readStream;
-        private Decode _decode;
-        private Mesg _lastMesg;
-
-        public FitReader(Stream readStream)
-        {
-            _readStream = readStream;
-            Reset();
-        }
-
-        public void Reset()
-        {
-            _readStream.Seek( 0, SeekOrigin.Begin);
-            Header h = new Header(_readStream);
-            InitDecode();
-        }
-
-        public Mesg ReadNextMesg()
-        {
-            while(_readStream.Position < (_readStream.Length - 2))
-            {
-                _decode.DecodeNextMessage(_readStream);
-                if (_lastMesg != null)
-                {
-                    var temp = _lastMesg;
-                    temp.RemoveExpandedFields();
-                    _lastMesg = null;
-                    return temp;
-                }
-            }
-
-            return null;
-        }
-
-        public IEnumerable<Mesg> ReadMesgs(Func<Mesg, bool> matcher)
-        {
-            var mesg = ReadNextMesg(matcher);
-            while (mesg != null)
-            {
-                yield return mesg;
-                mesg = ReadNextMesg(matcher);
-            }
-        }
-
-        public Mesg ReadNextMesg(Func<Mesg, bool> matcher)
-        {
-            var temp = ReadNextMesg();
-            while (temp != null)
-            {
-                if (matcher(temp))
-                {
-                    return temp;
-                }
-
-                temp = ReadNextMesg();
-            }
-
-            return null;
-        }
-
-        private void InitDecode()
-        {
-            _decode = new Decode();
-            _decode.MesgEvent += (sender, args) => { _lastMesg = args.mesg; };
-        }
-    }
-
     public class ZwiftMergeTool
     {
+        public enum FileGenerator
+        {
+            Garmin,
+            VirtualPlatform
+        }
+
+        private FitIndexer _zwiftIndex;
         private readonly FitReader _zwiftFile;
         private readonly FitReader _garminFile;
+        private readonly Stream _outStream;
+        private readonly FileGenerator _generator;
 
         private Encode _encode;
-        private long? _tsOffset = 0;
+        private long? _tsOffset = null;
 
         private Decode _zwiftDecode;
+        private LapManager _lapManager = new LapManager();
 
-        public ZwiftMergeTool(Stream zwiftFile, Stream garminFile)
+        public ZwiftMergeTool(Stream zwiftFile, Stream garminFile, Stream outStream, FileGenerator generator)
         {
             _zwiftFile = new FitReader(zwiftFile);
             _garminFile = new FitReader(garminFile);
+            _outStream = outStream;
+            _generator = generator;
         }
 
-        public Task MergeFilesAsync(Stream stream)
+        public Task MergeFilesAsync()
         {
-            return Task.Factory.StartNew(() => {MergeFiles(stream);});
+            return Task.Factory.StartNew(MergeFiles);
         }
 
-        private void MergeFiles(Stream outStream)
+        private void MergeFiles()
         {
             lock (_zwiftFile)
             {
                 ResetStreams();
                 FindDelay();
 
-                _encode = new Encode(outStream, ProtocolVersion.V20);
+                ResetStreams();
+                _zwiftIndex = new FitIndexer(_zwiftFile, new HashSet<ushort>{MesgNum.FileId, MesgNum.DeviceInfo, MesgNum.Session});
+
+                _encode = new Encode(_outStream, ProtocolVersion.V20);
                 try
                 {
                     ResetStreams();
@@ -121,10 +65,35 @@ namespace FitFileTools.Tools.MergeTool
                     ResetStreams();
                 }
             }
-
-            outStream.Seek(0, SeekOrigin.Begin);
         }
 
+        private void MergeRecord(Mesg msg)
+        {
+            var zwiftMessage = GetZwiftRecord(
+                (uint) msg.GetFieldValue(RecordMesg.FieldDefNum.Timestamp));
+
+            // If the file contains enhanced speed remove it
+            msg.RemoveField(msg.GetField(RecordMesg.FieldDefNum.EnhancedSpeed));
+            msg.RemoveField(msg.GetField(RecordMesg.FieldDefNum.EnhancedAltitude));
+
+            msg.RemoveField(msg.GetField(RecordMesg.FieldDefNum.Speed));
+            msg.RemoveField(msg.GetField(RecordMesg.FieldDefNum.Distance));
+            msg.RemoveField(msg.GetField(RecordMesg.FieldDefNum.Altitude));
+
+            if (zwiftMessage != null)
+            {
+                FitHelpers.CopyField(zwiftMessage, msg, RecordMesg.FieldDefNum.PositionLat);
+                FitHelpers.CopyField(zwiftMessage, msg, RecordMesg.FieldDefNum.PositionLong);
+                FitHelpers.CopyField(zwiftMessage, msg, RecordMesg.FieldDefNum.EnhancedAltitude);
+                FitHelpers.CopyField(zwiftMessage, msg, RecordMesg.FieldDefNum.EnhancedSpeed);
+                FitHelpers.CopyField(zwiftMessage, msg, RecordMesg.FieldDefNum.Distance);
+
+
+                //msg.SetFieldValue(RecordMesg.FieldDefNum.Speed, zwiftMessage.GetFieldValue(RecordMesg.FieldDefNum.Speed));
+                //msg.SetFieldValue(RecordMesg.FieldDefNum.Distance, zwiftMessage.GetFieldValue(RecordMesg.FieldDefNum.Distance));
+                _lapManager.OnRecordMesg(msg);
+            }
+        }
         private void FindDelay()
         {
             var zwiftRecords = _zwiftFile.ReadMesgs(m => m.Num == MesgNum.Record).ToArray();
@@ -180,9 +149,15 @@ namespace FitFileTools.Tools.MergeTool
 
             for (int i = 0; i < shiftList.Length; i++)
             {
-                var keyHr = (byte)keyList[i + shift].GetFieldValue(RecordMesg.FieldDefNum.HeartRate);
-                var shiftHr = (byte)shiftList[i].GetFieldValue(RecordMesg.FieldDefNum.HeartRate);
-                absScore += (uint)Math.Abs(keyHr - shiftHr);
+                if((i + shift) >= keyList.Length) break;
+                var keyHr = (byte?)keyList[i + shift].GetFieldValue(RecordMesg.FieldDefNum.HeartRate);
+                var shiftHr = (byte?)shiftList[i].GetFieldValue(RecordMesg.FieldDefNum.HeartRate);
+                if (!shiftHr.HasValue || !keyHr.HasValue)
+                {
+                    continue;
+                }
+
+                absScore += (uint)Math.Abs(keyHr.Value - shiftHr.Value);
 
                 if (absScore > stopScore)
                 {
@@ -193,43 +168,35 @@ namespace FitFileTools.Tools.MergeTool
             return absScore;
         }
 
-        private void MergeRecord(Mesg msg)
-        {
-            var zwiftMessage = GetZwiftRecord(
-                (uint) msg.GetFieldValue(RecordMesg.FieldDefNum.Timestamp));
-
-            if (zwiftMessage == null)
-            {
-                // No zwift record
-                return;
-            }
-
-            // If the file contains enhanced speed remove it
-            msg.RemoveField(msg.GetField(RecordMesg.FieldDefNum.EnhancedSpeed));
-
-            msg.SetField(zwiftMessage.GetField(RecordMesg.FieldDefNum.PositionLat));
-            msg.SetField(zwiftMessage.GetField(RecordMesg.FieldDefNum.PositionLong));
-            msg.SetField(zwiftMessage.GetField(RecordMesg.FieldDefNum.Altitude));
-            msg.SetField(zwiftMessage.GetField(RecordMesg.FieldDefNum.Speed));
-            msg.SetField(zwiftMessage.GetField(RecordMesg.FieldDefNum.Distance));
-        }
 
         private Mesg GetZwiftRecord(uint timestamp)
         {
-            var record = _zwiftFile.ReadNextMesg(mesg =>
+            Mesg record;
+
+            if (_tsOffset == null)
             {
-                if (mesg.Num == MesgNum.Record)
+                record = _zwiftFile.ReadNextMesg((mesg => mesg.Num == MesgNum.Record));
+                uint zwiftTs = (uint)record.GetFieldValue(RecordMesg.FieldDefNum.Timestamp);
+
+                _tsOffset = (long)zwiftTs - timestamp;
+            }
+            else
+            {
+                record = _zwiftFile.ReadNextMesg(mesg =>
                 {
-                    var zwiftTs = (uint)mesg.GetFieldValue(RecordMesg.FieldDefNum.Timestamp);
-
-                    if (zwiftTs + _tsOffset >= timestamp)
+                    if (mesg.Num == MesgNum.Record)
                     {
-                        return true;
-                    }
-                }
+                        var zwiftTs = (uint)mesg.GetFieldValue(RecordMesg.FieldDefNum.Timestamp);
 
-                return false;
-            });
+                        if (zwiftTs + _tsOffset >= timestamp)
+                        {
+                            return true;
+                        }
+                    }
+
+                    return false;
+                });
+            }
 
             return record;
         }
@@ -239,14 +206,32 @@ namespace FitFileTools.Tools.MergeTool
             var mesg = _garminFile.ReadNextMesg();
             while (mesg != null)
             {
-                if (IsMergeagle(mesg))
+                if (KeepMessage(mesg))
                 {
-                    MergeMessage(mesg);
+                    if (IsMergeagle(mesg))
+                    {
+                        MergeMessage(mesg);
+                    }
+
+                    _encode.Write(mesg);
                 }
 
-                _encode.Write(mesg);
-
                 mesg = _garminFile.ReadNextMesg();
+            }
+        }
+
+        private bool KeepMessage(Mesg mesg)
+        {
+            switch (mesg.Num)
+            {
+                case 312:
+                case 313:
+                //case MesgNum.WorkoutStep:
+                    /* Remove private messages that interfere with ability to merge relevant data */
+                    return false;
+
+                default:
+                    return true;
             }
         }
 
@@ -254,8 +239,12 @@ namespace FitFileTools.Tools.MergeTool
         {
             switch (lastMesg.Num)
             {
+                case MesgNum.FileId:
+                case MesgNum.DeviceInfo:
                 case MesgNum.Sport:
                 case MesgNum.Record:
+                case MesgNum.Session:
+                case MesgNum.Lap:
                     return true;
                 default:
                     return false;
@@ -266,13 +255,76 @@ namespace FitFileTools.Tools.MergeTool
         {
             switch (lastMesg.Num)
             {
+                case MesgNum.FileId:
+                    FixupFileIdMesg(lastMesg);
+                    break;
+                case MesgNum.DeviceInfo:
+                    FixupDeviceInfoMesg(lastMesg);
+                    break;
                 case MesgNum.Sport:
                     FixupSportMesg(lastMesg);
                     break;
                 case MesgNum.Record:
                     MergeRecord(lastMesg);
                     break;
+                case MesgNum.Session:
+                    MergeSession(lastMesg);
+                    break;
+                case MesgNum.Lap:
+                    MergeLap(lastMesg);
+                    break;
             }
+        }
+
+        private void FixupFileIdMesg(Mesg lastMesg)
+        {
+            if (_generator == FileGenerator.VirtualPlatform)
+            {
+                var zwiftMessage = _zwiftIndex.Get(MesgNum.FileId);
+                if (zwiftMessage == null) return;
+
+                var fieldsToCopy = new List<byte> {
+                    FileIdMesg.FieldDefNum.Product,
+                    FileIdMesg.FieldDefNum.SerialNumber,
+                    FileIdMesg.FieldDefNum.Manufacturer,
+                };
+
+                foreach (var field in fieldsToCopy)
+                {
+                    FitHelpers.CopyField(zwiftMessage, lastMesg, field);
+                }
+            }
+        }
+
+        private void FixupDeviceInfoMesg(Mesg lastMesg)
+        {
+            if (_generator == FileGenerator.VirtualPlatform)
+            {
+                var zwiftMessage = _zwiftIndex.Get(MesgNum.DeviceInfo);
+                if (zwiftMessage == null) return;
+
+                var fieldsToCopy = new List<byte> {
+                    DeviceInfoMesg.FieldDefNum.Product,
+                    DeviceInfoMesg.FieldDefNum.Product,
+                    DeviceInfoMesg.FieldDefNum.SoftwareVersion,
+                };
+
+                foreach (var field in fieldsToCopy)
+                {
+                    FitHelpers.CopyField(zwiftMessage, lastMesg, field);
+                }
+            }
+        }
+
+        private void MergeLap(Mesg lastMesg)
+        {
+            _lapManager.OnLapMesg(lastMesg);
+        }
+
+        private void MergeSession(Mesg session)
+        {
+            _lapManager.OnSessionMesg(session);
+            session.SetFieldValue(SessionMesg.FieldDefNum.SubSport, SubSport.VirtualActivity);
         }
 
         private void FixupSportMesg(Mesg lastMesg)

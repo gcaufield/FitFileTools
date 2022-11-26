@@ -2,8 +2,13 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.IO;
+using System.Threading.Tasks;
+using Dynastream.Fit;
 using FitFileTools.Tools;
+using FitFileTools.Tools.FileFilter;
 using FitFileTools.Tools.MergeTool;
+using DateTime = Dynastream.Fit.DateTime;
+
 // ReSharper disable InconsistentNaming
 
 namespace FitFileTools.Cli
@@ -34,28 +39,57 @@ namespace FitFileTools.Cli
             return cmd;
         }
 
+        private static Command BuildFilterFilesCommand()
+        {
+            var cmd = new Command("filter")
+            {
+                new Argument<DirectoryInfo>("source", "The path to the source dir to search")
+                {
+                    Arity = ArgumentArity.ExactlyOne
+                }.ExistingOnly(),
+                new Argument<DirectoryInfo>("destination", "The path to the destination dir to copy to")
+                {
+                    Arity = ArgumentArity.ExactlyOne
+                }.ExistingOnly()
+            };
+
+            cmd.Handler = CommandHandler.Create((DirectoryInfo source, DirectoryInfo destination) =>
+            {
+                var tool = new FileFilter(
+                    new ActivityTypeFilter(new[] { Sport.Running, Sport.Swimming, Sport.Cycling }));
+
+                tool.FilterFolder(source.FullName, destination.FullName);
+
+                return Task.CompletedTask;
+            });
+
+            return cmd;
+        }
+
         private static Command BuildMergeFilesCommand()
         {
             var cmd = new Command("merge")
             {
-                new Argument<FileInfo>("zwift_file", "The path to the Zwift .FIT file")
+                new Option<bool>("--garmin", "Use the Garmin device as the base"),
+                new Argument<FileInfo>("virtual_file", "The path to the Virtual Activity .FIT file")
                 {
                     Arity = ArgumentArity.ExactlyOne
                 }.ExistingOnly(),
                 new Argument<FileInfo>("garmin_file", "The path to the Garmin device .FIT file")
                 {
                     Arity = ArgumentArity.ExactlyOne
-                }.ExistingOnly()
+                }.ExistingOnly(),
             };
 
-            cmd.Handler = CommandHandler.Create(async (FileInfo zwift_file, FileInfo garmin_file) =>
+            cmd.Handler = CommandHandler.Create(async (FileInfo virtual_file, FileInfo garmin_file, bool garmin) =>
             {
-                await using var zwiftStream = new FileStream(zwift_file.FullName, FileMode.Open, FileAccess.Read);
+                await using var zwiftStream = new FileStream(virtual_file.FullName, FileMode.Open, FileAccess.Read);
                 await using var garminStream = new FileStream(garmin_file.FullName, FileMode.Open, FileAccess.Read);
-                var tool = new ZwiftMergeTool(zwiftStream, garminStream);
+                await using var tempOut = new FileStream($"{System.DateTime.Now:yyyy-MM-dd-HH-mm-ss}.fit", FileMode.Create, FileAccess.ReadWrite);
 
-                await using var tempOut = new FileStream("merge.fit", FileMode.Create, FileAccess.ReadWrite);
-                await tool.MergeFilesAsync(tempOut);
+                var tool = new ZwiftMergeTool(zwiftStream, garminStream, tempOut,
+                    garmin ? ZwiftMergeTool.FileGenerator.Garmin : ZwiftMergeTool.FileGenerator.VirtualPlatform);
+                await tool.MergeFilesAsync();
             });
 
             return cmd;
@@ -69,7 +103,8 @@ namespace FitFileTools.Cli
                 {
                     BuildConvertTcxCommand()
                 },
-                BuildMergeFilesCommand()
+                BuildMergeFilesCommand(),
+                BuildFilterFilesCommand()
             };
 
             return rootCommand.InvokeAsync(args).Result;
