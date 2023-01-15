@@ -48,7 +48,7 @@ namespace FitFileTools.Tools.MergeTool
                 FindDelay();
 
                 ResetStreams();
-                _zwiftIndex = new FitIndexer(_zwiftFile, new HashSet<ushort>{MesgNum.FileId, MesgNum.DeviceInfo, MesgNum.Session});
+                _zwiftIndex = new FitIndexer(_zwiftFile, new HashSet<ushort> { MesgNum.FileId, MesgNum.DeviceInfo, MesgNum.Session });
 
                 _encode = new Encode(_outStream, ProtocolVersion.V20);
                 try
@@ -70,7 +70,7 @@ namespace FitFileTools.Tools.MergeTool
         private void MergeRecord(Mesg msg)
         {
             var zwiftMessage = GetZwiftRecord(
-                (uint) msg.GetFieldValue(RecordMesg.FieldDefNum.Timestamp));
+                (uint)msg.GetFieldValue(RecordMesg.FieldDefNum.Timestamp));
 
             // If the file contains enhanced speed remove it
             msg.RemoveField(msg.GetField(RecordMesg.FieldDefNum.EnhancedSpeed));
@@ -131,8 +131,8 @@ namespace FitFileTools.Tools.MergeTool
                 }
             }
 
-            _tsOffset = (uint) keyList[offset].GetFieldValue(RecordMesg.FieldDefNum.Timestamp) -
-                        (uint) shiftList[0].GetFieldValue(RecordMesg.FieldDefNum.Timestamp);
+            _tsOffset = (uint)keyList[offset].GetFieldValue(RecordMesg.FieldDefNum.Timestamp) -
+                        (uint)shiftList[0].GetFieldValue(RecordMesg.FieldDefNum.Timestamp);
         }
 
         private TimeSpan GetTimespan(Mesg[] records)
@@ -149,7 +149,7 @@ namespace FitFileTools.Tools.MergeTool
 
             for (int i = 0; i < shiftList.Length; i++)
             {
-                if((i + shift) >= keyList.Length) break;
+                if ((i + shift) >= keyList.Length) break;
                 var keyHr = (byte?)keyList[i + shift].GetFieldValue(RecordMesg.FieldDefNum.HeartRate);
                 var shiftHr = (byte?)shiftList[i].GetFieldValue(RecordMesg.FieldDefNum.HeartRate);
                 if (!shiftHr.HasValue || !keyHr.HasValue)
@@ -226,7 +226,7 @@ namespace FitFileTools.Tools.MergeTool
             {
                 case 312:
                 case 313:
-                //case MesgNum.WorkoutStep:
+                    //case MesgNum.WorkoutStep:
                     /* Remove private messages that interfere with ability to merge relevant data */
                     return false;
 

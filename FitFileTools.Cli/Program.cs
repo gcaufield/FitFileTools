@@ -7,6 +7,7 @@ using Dynastream.Fit;
 using FitFileTools.Tools;
 using FitFileTools.Tools.FileFilter;
 using FitFileTools.Tools.MergeTool;
+using FitFileTools.Tools.WorkoutBuilder;
 using DateTime = Dynastream.Fit.DateTime;
 
 // ReSharper disable InconsistentNaming
@@ -94,6 +95,21 @@ namespace FitFileTools.Cli
 
             return cmd;
         }
+        private static Command BuildGenerateWorkoutsCommand()
+        {
+            var cmd = new Command("workout")
+            {
+
+            };
+
+            cmd.Handler = CommandHandler.Create(() =>
+            {
+                var tool = new WorkoutBuilder();
+                tool.BuildWorkouts();
+            });
+
+            return cmd;
+        }
 
         private static int Main(string[] args)
         {
@@ -104,7 +120,8 @@ namespace FitFileTools.Cli
                     BuildConvertTcxCommand()
                 },
                 BuildMergeFilesCommand(),
-                BuildFilterFilesCommand()
+                BuildFilterFilesCommand(),
+                BuildGenerateWorkoutsCommand()
             };
 
             return rootCommand.InvokeAsync(args).Result;

@@ -40,7 +40,7 @@ namespace FitFileTools.Tools.MergeTool
             else
             {
                 var delta = FitHelpers.FieldDiff(mesg, _lastRecord, RecordMesg.FieldDefNum.EnhancedAltitude);
-                if(delta < 0)
+                if (delta < 0)
                 {
                     TotalDescent += Math.Abs(delta);
                 }

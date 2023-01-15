@@ -17,7 +17,7 @@ namespace FitFileTools.Tools.MergeTool
                 _index[num] = new List<Mesg>();
             }
 
-            foreach(var mesg in file.ReadMesgs(m => mesgs.Contains(m.Num)))
+            foreach (var mesg in file.ReadMesgs(m => mesgs.Contains(m.Num)))
             {
                 _index[mesg.Num].Add(mesg);
             }
@@ -46,7 +46,7 @@ namespace FitFileTools.Tools.MergeTool
 
         public void Reset()
         {
-            _readStream.Seek( 0, SeekOrigin.Begin);
+            _readStream.Seek(0, SeekOrigin.Begin);
             InitDecode();
             _isValid = _decode.CheckIntegrity(_readStream);
             if (_isValid)
@@ -57,7 +57,7 @@ namespace FitFileTools.Tools.MergeTool
 
         public Mesg ReadNextMesg()
         {
-            while(_readStream.Position < (_readStream.Length - 2))
+            while (_readStream.Position < (_readStream.Length - 2))
             {
                 _decode.DecodeNextMessage(_readStream);
                 if (_lastMesg != null)

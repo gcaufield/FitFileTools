@@ -34,7 +34,7 @@ namespace FitFileTools.Tools
                     var rcrd = new RecordMesg();
 
                     rcrd.SetTimestamp(new Dynastream.Fit.DateTime(record.Timestamp));
-                    rcrd.SetAltitude((float?) record.Elevation);
+                    rcrd.SetAltitude((float?)record.Elevation);
                 }
             });
         }

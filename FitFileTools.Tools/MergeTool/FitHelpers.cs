@@ -1,5 +1,3 @@
-using System;
-using System.Runtime.InteropServices.WindowsRuntime;
 using Dynastream.Fit;
 
 namespace FitFileTools.Tools.MergeTool
