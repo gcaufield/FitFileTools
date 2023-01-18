@@ -16,6 +16,43 @@ namespace FitFileTools.WorkoutServices
             _builder = builder;
         }
 
+        public List<WorkoutInput> GetInputs(TextReader workoutReader) {
+            var list = new List<WorkoutInput>();
+            
+            if (!(JToken.ReadFrom(new JsonTextReader(workoutReader)) is JObject o))
+            {
+                return null;
+            }
+
+            if (!(o.GetValue("inputs") is JArray inputs))
+            {
+                // No inputs
+                return list;
+            }
+
+            foreach (var jToken in inputs)
+            {
+                if (!(jToken is JObject input))
+                {
+                    continue;
+                }
+
+                var name = input.GetValue("name")?.Value<string>();
+                var inputId = input.GetValue("id")?.Value<string>();
+
+                if (name == null || inputId == null)
+                {
+                    continue;
+                }
+
+                var workoutInput = new WorkoutInput(name, inputId);
+
+                list.Add(workoutInput);
+            }
+
+            return list;
+        }
+
         public void BuildWorkouts(Stream outStream, TextReader workoutReader, IDictionary<string, object> inputs)
         {
             _builder.StartExport(outStream);

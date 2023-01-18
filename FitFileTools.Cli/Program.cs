@@ -8,7 +8,6 @@ using FitFileTools.Tools;
 using FitFileTools.Tools.FileFilter;
 using FitFileTools.Tools.MergeTool;
 using FitFileTools.Tools.WorkoutBuilder;
-using DateTime = Dynastream.Fit.DateTime;
 
 // ReSharper disable InconsistentNaming
 
@@ -99,12 +98,15 @@ namespace FitFileTools.Cli
         {
             var cmd = new Command("workout")
             {
-
+                new Argument<FileInfo>("definition", "The path of the workout definition JSON")
+                {
+                    Arity = ArgumentArity.ExactlyOne
+                }.ExistingOnly()
             };
 
-            cmd.Handler = CommandHandler.Create(() =>
+            cmd.Handler = CommandHandler.Create((FileInfo definition) =>
             {
-                var tool = new WorkoutBuilder();
+                var tool = new WorkoutBuilder(definition);
                 tool.BuildWorkouts();
             });
 
