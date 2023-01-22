@@ -14,30 +14,24 @@ namespace FitFileTools.Tools.WorkoutBuilder
             var setBuilder = new JsonSetBuilder(lookup);
             var workoutBuilder = new FitWorkoutBuilder();
             _service = new WorkoutService(setBuilder, workoutBuilder);
+            _inputProcessor = new InputProcessor(lookup);
+
         }
 
         public void BuildWorkouts()
         {
             List<WorkoutInput> inputs = null;
-            using(var fileStream = new FileStream(_definitionFile.FullName, FileMode.Open))
-            using(var fileReader = new StreamReader(fileStream))
+            using (var fileStream = new FileStream(_definitionFile.FullName, FileMode.Open))
+            using (var fileReader = new StreamReader(fileStream))
             {
                 inputs = _service.GetInputs(fileReader);
             }
 
-            var input_values = new Dictionary<string, object>();
+            var input_values = _inputProcessor.GetUserInput(inputs);
 
-            foreach(var input in inputs)
-            {
-                Console.Write($"Value of {input.Name}: ");
-                string val = Console.ReadLine();
-            
-                input_values[input.Id] = val;
-            }
-
-            using(var fileStream = new FileStream(_definitionFile.FullName, FileMode.Open))
-            using(var fileReader = new StreamReader(fileStream))
-            using(var outputStream = new FileStream("outputs.zip", FileMode.Create))
+            using (var fileStream = new FileStream(_definitionFile.FullName, FileMode.Open))
+            using (var fileReader = new StreamReader(fileStream))
+            using (var outputStream = new FileStream("outputs.zip", FileMode.Create))
             {
                 _service.BuildWorkouts(outputStream, fileReader, input_values);
             }
@@ -45,5 +39,6 @@ namespace FitFileTools.Tools.WorkoutBuilder
 
         private WorkoutService _service;
         private FileInfo _definitionFile;
+        private InputProcessor _inputProcessor;
     }
 }

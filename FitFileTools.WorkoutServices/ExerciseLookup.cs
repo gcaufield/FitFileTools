@@ -34,7 +34,7 @@ namespace FitFileTools.WorkoutServices
         {
             get
             {
-                switch(Equipment)
+                switch (Equipment)
                 {
                     case EquipmentType.Barbell:
                         return 45;
@@ -55,7 +55,7 @@ namespace FitFileTools.WorkoutServices
         {
             get
             {
-                switch(Equipment)
+                switch (Equipment)
                 {
                     default:
                     case EquipmentType.TwoHandDumbbell:
@@ -77,7 +77,7 @@ namespace FitFileTools.WorkoutServices
     {
         public ExerciseLookup()
         {
-            exercises_ = new List<Exercise> {
+            _exercises = new List<Exercise> {
                 new Exercise
                 {
                     FriendlyName = "Deadlift",
@@ -204,14 +204,15 @@ namespace FitFileTools.WorkoutServices
                     Name = RowExerciseName.FacePull,
                     Equipment = EquipmentType.StackMachine
                 },
-            }.ToDictionary(k => k.FriendlyName);
+            }.ToDictionary(k => k.FriendlyName.ToLower());
         }
 
         public Exercise GetExercise(string friendlyName)
         {
-            return exercises_[friendlyName];
+            string key = friendlyName.Trim().ToLower();
+            return _exercises.ContainsKey(key) ? _exercises[key] : null;
         }
 
-        private Dictionary<string, Exercise> exercises_;
+        private Dictionary<string, Exercise> _exercises;
     }
 }

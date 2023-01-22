@@ -16,9 +16,10 @@ namespace FitFileTools.WorkoutServices
             _builder = builder;
         }
 
-        public List<WorkoutInput> GetInputs(TextReader workoutReader) {
+        public List<WorkoutInput> GetInputs(TextReader workoutReader)
+        {
             var list = new List<WorkoutInput>();
-            
+
             if (!(JToken.ReadFrom(new JsonTextReader(workoutReader)) is JObject o))
             {
                 return null;
@@ -39,13 +40,14 @@ namespace FitFileTools.WorkoutServices
 
                 var name = input.GetValue("name")?.Value<string>();
                 var inputId = input.GetValue("id")?.Value<string>();
+                var type = input.GetValue("type")?.Value<string>();
 
-                if (name == null || inputId == null)
+                if (name == null || inputId == null || type == null)
                 {
                     continue;
                 }
 
-                var workoutInput = new WorkoutInput(name, inputId);
+                var workoutInput = new WorkoutInput(name, inputId, type);
 
                 list.Add(workoutInput);
             }
