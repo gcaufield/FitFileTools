@@ -129,6 +129,13 @@ namespace FitFileTools.WorkoutServices
                 },
                 new Exercise
                 {
+                    FriendlyName = "Dip",
+                    Category = ExerciseCategory.TricepsExtension,
+                    Name = TricepsExtensionExerciseName.WeightedDip,
+                    Equipment = EquipmentType.Plate
+                },
+                new Exercise
+                {
                     FriendlyName = "TricepsExtension",
                     Category = ExerciseCategory.TricepsExtension,
                     Name = TricepsExtensionExerciseName.OverheadDumbbellTricepsExtension,
@@ -140,6 +147,13 @@ namespace FitFileTools.WorkoutServices
                     Category = ExerciseCategory.Row,
                     Name = RowExerciseName.DumbbellRow,
                     Equipment = EquipmentType.SingleHandDumbbell
+                },
+                new Exercise
+                {
+                    FriendlyName = "BarbellRow",
+                    Category = ExerciseCategory.Row,
+                    Name = RowExerciseName.Invalid,
+                    Equipment = EquipmentType.Barbell
                 },
                 new Exercise
                 {
