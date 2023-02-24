@@ -8,6 +8,7 @@ using FitFileTools.Tools;
 using FitFileTools.Tools.FileFilter;
 using FitFileTools.Tools.MergeTool;
 using FitFileTools.Tools.WorkoutBuilder;
+using FitFileTools.Tools.Adjustment;
 
 // ReSharper disable InconsistentNaming
 
@@ -113,6 +114,35 @@ namespace FitFileTools.Cli
             return cmd;
         }
 
+        private static Command BuildFootpodAdjustment()
+        {
+            var cmd = new Command("distance")
+            {
+                new Argument<FileInfo>("input", "Path to the file to adjust")
+                {
+                    Arity = ArgumentArity.ExactlyOne
+                }.ExistingOnly(),
+                new Argument<decimal>("distance", "Actual distance to scale the file to.")
+                {
+                    Arity = ArgumentArity.ExactlyOne
+                }
+            };
+
+            cmd.Handler = CommandHandler.Create((FileInfo input, decimal distance) =>
+            {
+                using var inputStream = new FileStream(input.FullName, FileMode.Open, FileAccess.Read);
+                var tool = new FootpodAdjustmentTool(inputStream, distance);
+                if (tool.ReadFile())
+                {
+                    string adjustedFilePath = Path.Join(input.DirectoryName, Path.GetFileNameWithoutExtension(input.Name) + "_adjusted" + input.Extension);
+                    using var outputStream = new FileStream(adjustedFilePath, FileMode.Create, FileAccess.ReadWrite);
+                    tool.AdjustFile(outputStream);
+                }
+            });
+
+            return cmd;
+        }
+
         private static int Main(string[] args)
         {
             var rootCommand = new RootCommand
@@ -120,6 +150,10 @@ namespace FitFileTools.Cli
                 new Command("convert", "Convert a File to Fit.")
                 {
                     BuildConvertTcxCommand()
+                },
+                new Command("adjust", "Adjust a property of a FIT file")
+                {
+                    BuildFootpodAdjustment()
                 },
                 BuildMergeFilesCommand(),
                 BuildFilterFilesCommand(),
