@@ -50,13 +50,20 @@ namespace FitFileTools.Tools.MergeTool
                 ResetStreams();
                 _zwiftIndex = new FitIndexer(_zwiftFile, new HashSet<ushort> { MesgNum.FileId, MesgNum.DeviceInfo, MesgNum.Session });
 
-                _encode = new Encode(_outStream, ProtocolVersion.V20);
                 try
                 {
                     ResetStreams();
 
                     // Read the header from both files to ensure we can step through the messages
+                    using var tempStream = new MemoryStream();
+                    
+                    // Do Initial encode to the temporary in memory stream.
+                    _encode = new Encode(tempStream, ProtocolVersion.V20);
                     MergeMessages();
+                    _encode.Close();
+
+                    _encode = new Encode(_outStream, ProtocolVersion.V20);
+                    Finalize(tempStream);
                 }
                 finally
                 {
@@ -64,6 +71,21 @@ namespace FitFileTools.Tools.MergeTool
                     _encode = null;
                     ResetStreams();
                 }
+            }
+        }
+
+        private void Finalize(Stream tempStream)
+        {
+            var temp = new FitReader(tempStream);
+            
+            var mesg = temp.ReadNextMesg();
+            while (mesg != null)
+            {
+                FinalizeMessage(mesg);
+
+                _encode.Write(mesg);
+
+                mesg = temp.ReadNextMesg();
             }
         }
 
@@ -251,6 +273,20 @@ namespace FitFileTools.Tools.MergeTool
             }
         }
 
+        private void FinalizeMessage(Mesg lastMesg)
+        {
+            switch (lastMesg.Num)
+            {
+                case MesgNum.Session:
+                    ExportSession(lastMesg);
+                    break;
+                case MesgNum.Lap:
+                    _lapManager.ExportLapMesg(lastMesg);
+                    break;
+            }
+            
+        }
+
         private void MergeMessage(Mesg lastMesg)
         {
             switch (lastMesg.Num)
@@ -266,9 +302,6 @@ namespace FitFileTools.Tools.MergeTool
                     break;
                 case MesgNum.Record:
                     MergeRecord(lastMesg);
-                    break;
-                case MesgNum.Session:
-                    MergeSession(lastMesg);
                     break;
                 case MesgNum.Lap:
                     MergeLap(lastMesg);
@@ -321,7 +354,7 @@ namespace FitFileTools.Tools.MergeTool
             _lapManager.OnLapMesg(lastMesg);
         }
 
-        private void MergeSession(Mesg session)
+        private void ExportSession(Mesg session)
         {
             _lapManager.OnSessionMesg(session);
             session.SetFieldValue(SessionMesg.FieldDefNum.SubSport, SubSport.VirtualActivity);

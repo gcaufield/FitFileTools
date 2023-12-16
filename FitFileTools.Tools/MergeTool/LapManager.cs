@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Dynastream.Fit;
 
 namespace FitFileTools.Tools.MergeTool
@@ -25,6 +26,11 @@ namespace FitFileTools.Tools.MergeTool
         public float TotalAscent { get; private set; } = 0;
 
         public float MaxSpeed { get; private set; }
+        
+        public uint StartTime { get;  set; }
+        public float ElapsedTime { get; set; }
+
+        private uint EndTime => StartTime + (uint)ElapsedTime;
 
         public int? StartPositionLat => (int?)_firstRecord.GetFieldValue(RecordMesg.FieldDefNum.PositionLat);
         public int? StartPositionLong => (int?)_firstRecord.GetFieldValue(RecordMesg.FieldDefNum.PositionLong);
@@ -56,60 +62,76 @@ namespace FitFileTools.Tools.MergeTool
             }
             _lastRecord = mesg;
         }
+
+        public bool Contains(uint ts)
+        {
+            return ts >= StartTime && ts < EndTime;
+        }
     }
 
     class LapManager
     {
-        private Accumulator _currentLap = new Accumulator();
+        private List<Accumulator> _laps = new List<Accumulator>{ new Accumulator() };
+        private Accumulator _currentLap;
         private Accumulator _session = new Accumulator();
 
-        private void ResetAccumulation()
+        public LapManager()
         {
-            _currentLap = new Accumulator(_currentLap);
+            _currentLap = _laps[0];
         }
 
         public void OnRecordMesg(Mesg mesg)
         {
-            _currentLap.OnRecordMesg(mesg);
+            var ts = (uint)mesg.GetFieldValue(RecordMesg.FieldDefNum.Timestamp);
+            var lap = _laps.Find(accum => accum.Contains(ts)) ?? _currentLap;
+            lap.OnRecordMesg(mesg);
             _session.OnRecordMesg(mesg);
         }
 
-        public void OnLapMesg(Mesg mesg)
+        public void ExportLapMesg(Mesg mesg)
         {
+            uint startTime = (uint)mesg.GetFieldValue(LapMesg.FieldDefNum.StartTime);
+            Accumulator accum = _laps.Find(accumulator => accumulator.StartTime == startTime);
+            
             mesg.RemoveField(mesg.GetField(LapMesg.FieldDefNum.EnhancedAvgSpeed));
             mesg.RemoveField(mesg.GetField(LapMesg.FieldDefNum.EnhancedMaxSpeed));
 
             mesg.SetFieldValue(
                 LapMesg.FieldDefNum.StartPositionLat,
-                _currentLap.StartPositionLat);
+                accum.StartPositionLat);
             mesg.SetFieldValue(
                 LapMesg.FieldDefNum.StartPositionLong,
-                _currentLap.StartPositionLong);
+                accum.StartPositionLong);
 
             mesg.SetFieldValue(
                 LapMesg.FieldDefNum.EndPositionLat,
-                _currentLap.EndPositionLat);
+                accum.EndPositionLat);
             mesg.SetFieldValue(
                 LapMesg.FieldDefNum.EndPositionLong,
-                _currentLap.EndPositionLong);
+                accum.EndPositionLong);
 
-            float averageSpeed = _currentLap.TotalDistance / (float)mesg.GetFieldValue(LapMesg.FieldDefNum.TotalTimerTime);
+            float averageSpeed = accum.TotalDistance / (float)mesg.GetFieldValue(LapMesg.FieldDefNum.TotalTimerTime);
 
-            mesg.SetFieldValue(LapMesg.FieldDefNum.TotalDistance, _currentLap.TotalDistance);
+            mesg.SetFieldValue(LapMesg.FieldDefNum.TotalDistance, accum.TotalDistance);
             mesg.SetFieldValue(LapMesg.FieldDefNum.EnhancedAvgSpeed, averageSpeed);
-            mesg.SetFieldValue(LapMesg.FieldDefNum.TotalDescent, _currentLap.TotalDescent);
-            mesg.SetFieldValue(LapMesg.FieldDefNum.TotalAscent, _currentLap.TotalAscent);
-            mesg.SetFieldValue(LapMesg.FieldDefNum.EnhancedMaxSpeed, _currentLap.MaxSpeed);
-
-
-            ResetAccumulation();
+            mesg.SetFieldValue(LapMesg.FieldDefNum.TotalDescent, accum.TotalDescent);
+            mesg.SetFieldValue(LapMesg.FieldDefNum.TotalAscent, accum.TotalAscent);
+            mesg.SetFieldValue(LapMesg.FieldDefNum.EnhancedMaxSpeed, accum.MaxSpeed);
+        }
+        
+        public void OnLapMesg(Mesg mesg)
+        {
+            _currentLap.StartTime = (uint)mesg.GetFieldValue(LapMesg.FieldDefNum.StartTime);
+            _currentLap.ElapsedTime = (float)mesg.GetFieldValue(LapMesg.FieldDefNum.TotalElapsedTime);
+            _currentLap = new Accumulator();
+            _laps.Add(_currentLap);
         }
 
         public void OnSessionMesg(Mesg mesg)
         {
             mesg.RemoveField(mesg.GetField(SessionMesg.FieldDefNum.EnhancedAvgSpeed));
             mesg.RemoveField(mesg.GetField(SessionMesg.FieldDefNum.EnhancedMaxSpeed));
-
+            
             mesg.SetFieldValue(
                 SessionMesg.FieldDefNum.StartPositionLat,
                 _session.StartPositionLat);
@@ -124,9 +146,6 @@ namespace FitFileTools.Tools.MergeTool
             mesg.SetFieldValue(SessionMesg.FieldDefNum.TotalDescent, _session.TotalDescent);
             mesg.SetFieldValue(SessionMesg.FieldDefNum.TotalAscent, _session.TotalAscent);
             mesg.SetFieldValue(SessionMesg.FieldDefNum.MaxSpeed, _session.MaxSpeed);
-
-
-            ResetAccumulation();
         }
     }
 }

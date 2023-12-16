@@ -178,6 +178,13 @@ namespace FitFileTools.WorkoutServices
                 },
                 new Exercise
                 {
+                    FriendlyName = "InclineDumbbellBenchPress",
+                    Category = ExerciseCategory.BenchPress,
+                    Name = BenchPressExerciseName.InclineDumbbellBenchPress,
+                    Equipment = EquipmentType.TwoHandDumbbell,
+                },
+                new Exercise
+                {
                     FriendlyName = "DumbbellOverheadPress",
                     Category = ExerciseCategory.ShoulderPress,
                     Name = ShoulderPressExerciseName.OverheadDumbbellPress,
